@@ -132,9 +132,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 20ms
 					i_SumIndexArry=0;
 					i_SumValuteIndexArry=0;
 					if(f_thamchieu==2){
-						vitri=-1;
+						vitri=-1.2;
 					}else if(f_thamchieu==3){
-						vitri=1;
+						vitri=1.2;
 					}else if(f_thamchieu==1){
 						vitri=-2;
 					}else if(f_thamchieu==4){
@@ -174,9 +174,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 20ms
 								//if (sensor[0] == 1 && sensor[1] == 0 && sensor[2] == 0 && sensor[3] ==1)
 									//	vitri = 0;
 			//				}
-							 if(f_thamchieu==0){
-								move(2,0);
-							 }
+							 
 				}
 	}
 	
