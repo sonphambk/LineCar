@@ -29,7 +29,10 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 uint8_t Idle;
-int vitri;
+float vitri;
+int i_SumIndexArry=0;
+int i_SumValuteIndexArry=0;
+float f_thamchieu=0;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -50,14 +53,15 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 char Rx_buff[255];
-uint8_t pwm1 = 200;
-uint8_t pwm2 = 200;
+char transmit[20];
+uint8_t pwm1 = 160;
+uint8_t pwm2 = 160;
 uint8_t offset = 10;
 uint8_t auto_mode = 0;
 uint8_t control_mode = 0;
 uint8_t S[4];
 float result_PWM;
-PID_parameter PID_set_parameters = {.Kp = 10,.Ki=0,.Kd=0,.Ts = 0.02,.PID_Saturation = 255
+PID_parameter PID_set_parameters = {.Kp = 25,.Ki=0.06,.Kd=3,.Ts = 0.02,.PID_Saturation = 255
 																			,.error =0,.pre_error =0,.pre2_error=0,.pre_Out =0,.Out = 0};
 /* USER CODE END PV */
 
@@ -112,47 +116,67 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 20ms
 	{
 			if (htim->Instance == TIM3)
 				{
-	//					if ( control_mode == 0 && auto_mode == 1)  // do line
-		//					{
-									S[3] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_5);
-									S[2] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_4);
-									S[1] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_3);
-									S[0] = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_15);
-								if (S[0] == 1 && S[1] == 0 && S[2] == 0 && S[3] == 1) // xe di thang
-										{
-												vitri = 0;
-												result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
-										}
-								if (S[0] == 0 && S[1] == 1 && S[2] == 0 && S[3] ==1)  // xe re phai
-										{
-												vitri = 1;
-												result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
-										}
-								if (S[0] == 1 && S[1] == 0 && S[2] == 0 && S[3] ==0)   // xe re trai
-										{
-												vitri = -1; 
-												result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
-										}
-							if (result_PWM == 0)
+					S[3] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_5);
+					S[2] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_4);
+					S[1] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_3);
+					S[0] = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_15);
+					for(int i=0;i<=3;i++)
+						{
+							if(S[i]==0)
+								{
+										i_SumValuteIndexArry+=1;
+										i_SumIndexArry+=(i+1);
+								}
+						}
+					f_thamchieu=(float)i_SumIndexArry/i_SumValuteIndexArry;
+					i_SumIndexArry=0;
+					i_SumValuteIndexArry=0;
+					if(f_thamchieu==2){
+						vitri=-1;
+					}else if(f_thamchieu==3){
+						vitri=1;
+					}else if(f_thamchieu==1){
+						vitri=-2;
+					}else if(f_thamchieu==4){
+						vitri=2;
+					}else if(f_thamchieu==1.5){
+						vitri=-1.5;
+					}else if(f_thamchieu ==2.5){
+						vitri=0;
+					}else if(f_thamchieu==3.5)
+					{
+						vitri=1.5;
+					}	 
+					
+					result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
+								
+							if (vitri== 0)
 										{			
-												move(0,0);
-												move(1,1);
+												move(0,1);
+												move(1,0);
 												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,200);
 												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,200);
 										}
-							if (result_PWM > 0)
+							if (vitri > 0)
 										{
-												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,pwm1 - result_PWM);  //kenh 3 dong co trai
-												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,pwm2 + result_PWM);	
+												move(0,1);
+												move(1,0);
+												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,result_PWM);  //kenh 3 dong co trai
+												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,0);	
 										}
-							if (result_PWM < 0)
+							if (vitri < 0)
 										{
-												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,pwm1 + (result_PWM*-1));
-												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,pwm2 - (result_PWM*-1));	
+												move(0,1);
+												move(1,0);
+												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,0);
+												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,(result_PWM*-1));	
 										}
 								//if (sensor[0] == 1 && sensor[1] == 0 && sensor[2] == 0 && sensor[3] ==1)
 									//	vitri = 0;
 			//				}
+							 if(f_thamchieu==0){
+								move(2,0);
+							 }
 				}
 	}
 	
@@ -214,17 +238,23 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-	HAL_UART_Receive_IT(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff));
+	//HAL_UART_Receive_IT(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff));
 	HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_3);
 	HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_4);
 	HAL_TIM_Base_Start_IT(&htim3);
+
+	__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,160);
+	__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,160);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-			if (  control_mode == 1 && auto_mode == 0)
+//			sprintf(transmit,"s[0] = %d  s[1] = %d  s[2] =%d  s[3] = %d",S[0],S[1],S[2],S[3]);
+//			HAL_UART_Transmit(&huart1,(uint8_t*)transmit,sizeof(transmit),HAL_MAX_DELAY);
+		//	HAL_Delay(200);
+		/*	if (  control_mode == 1 && auto_mode == 0)
 				{
 						switch(Rx_buff[1])
 										{
@@ -261,15 +291,20 @@ int main(void)
 														break;
 											}
 									}
-						}
+						}*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 		
   }
+
   /* USER CODE END 3 */
 }
-
+_ARMABI int fputc(int c, FILE * stream)
+{
+	HAL_UART_Transmit(&huart1,(uint8_t*)&c,1,HAL_MAX_DELAY);
+  return 0;
+}
 /**
   * @brief System Clock Configuration
   * @retval None
@@ -326,9 +361,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 71;
+  htim3.Init.Prescaler = 7199;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 20000;
+  htim3.Init.Period = 200;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -463,16 +498,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_11 
-                          |GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
-
-  /*Configure GPIO pins : PB0 PB1 PB10 PB11 
-                           PB3 PB4 PB5 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_11 
-                          |GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5;
+  /*Configure GPIO pins : PB0 PB1 PB10 PB11 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_11;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -480,10 +509,15 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PA15 */
   GPIO_InitStruct.Pin = GPIO_PIN_15;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB3 PB4 PB5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }
 
