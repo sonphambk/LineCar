@@ -63,6 +63,11 @@ uint8_t S[4];
 float result_PWM;
 PID_parameter PID_set_parameters = {.Kp = 25,.Ki=0.06,.Kd=3,.Ts = 0.02,.PID_Saturation = 255
 																			,.error =0,.pre_error =0,.pre2_error=0,.pre_Out =0,.Out = 0};
+volatile uint8_t status = 0;
+volatile float kp = 0;//kpmotor ;
+volatile float ki = 0;//kimotor ;
+volatile float kd = 0;//kdmotor ;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -114,6 +119,10 @@ void move(float motor,float dir)
 	}
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 20ms 
 	{
+			PID_set_parameters.Kp = kp;
+			PID_set_parameters.Ki = ki;
+			PID_set_parameters.Kd = kd;
+
 			if (htim->Instance == TIM3)
 				{
 					S[3] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_5);
@@ -185,21 +194,154 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 20ms
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	{
 			if (huart->Instance == USART1)
-				{		
-						HAL_UART_Receive_IT(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff));
-						if (Rx_buff[0] == 'C') //    ;  'C' : Control mode 
-							{		
-									control_mode = 1;
-									auto_mode = 0;
-									HAL_UART_Transmit(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff),HAL_MAX_DELAY);
-							}
-							else if (Rx_buff[0] == 'A')    // 'A' : Auto mode
-							{
-									HAL_UART_Transmit(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff),HAL_MAX_DELAY);
-									control_mode = 0;
-									auto_mode = 1;	
-							}
+			{
+				HAL_UART_Receive_IT(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff));
+				//Bat dau Debug
+				if ((Rx_buff[0] == 'B') && (status == 0))
+				{
+					HAL_UART_Transmit(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff),HAL_MAX_DELAY);
+					while (!__HAL_UART_GET_FLAG(&huart1,UART_FLAG_TC));
+					status = 1;
 				}
+
+				//Ket thuc debug
+				if ((Rx_buff[0] == 'S') && (status == 1))
+				{
+					HAL_UART_Transmit(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff),HAL_MAX_DELAY);
+					while (!__HAL_UART_GET_FLAG(&huart1,UART_FLAG_TC));
+					status = 0;
+				}
+
+
+				if ((Rx_buff[0] == 'C') && (status == 1)) //    ;  'C' : Control mode
+				{		
+					control_mode = 1;
+					auto_mode = 0;
+					HAL_UART_Transmit(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff),HAL_MAX_DELAY);
+				}
+				else if (Rx_buff[0] == 'A' && (status == 1))    // 'A' : Auto mode
+				{
+					HAL_UART_Transmit(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff),HAL_MAX_DELAY);
+					control_mode = 0;
+					auto_mode = 1;
+				}
+
+
+				if ((Rx_buff[0] == 'P') && (status == 0))
+				{
+					HAL_UART_Transmit(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff),HAL_MAX_DELAY);
+					while (!__HAL_UART_GET_FLAG(&huart1,UART_FLAG_TC));
+					uint8_t i = 0;
+					uint8_t j = 0;
+					float dec = 0;
+					do
+					{
+						while (!__HAL_UART_GET_FLAG(&huart1,UART_FLAG_RXNE));
+						HAL_UART_Receive(&huart2, Rx_buff+i, 1, 1000);
+						HAL_UART_Transmit(&huart2, Rx_buff+i, 1, 1000);
+						while (!__HAL_UART_GET_FLAG(&huart1,UART_FLAG_TC));
+						if (Rx_buff[i] == '.')
+						{
+							k = Rx_buff[0]-48;
+							for (j = 1;j<i ; j++)
+								k = k*10 + (Rx_buff[j]-48);
+							//j = i+1;
+						}
+					} while (Rx_buff[i++] != '\n');
+					if (j)
+					{
+						for (i=i-3;i>j;i--)
+							dec = dec*0.1 + (Rx_buff[i]-48);
+						dec = dec*0.1;
+					}
+					else
+					{
+						k = Rx_buff[0]-48;
+						for (j = 1;j<i-2 ; j++)
+						k = k*10 + (Rx_buff[j]-48);
+					}
+					k+=dec;
+					kp = k;
+				}
+
+				//Nhap Ki
+				if ((Rx_buff[0] == 'I') && (status == 0))
+				{
+					HAL_UART_Transmit(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff),HAL_MAX_DELAY);
+					while (!__HAL_UART_GET_FLAG(&huart1,UART_FLAG_TC));
+					uint8_t i = 0;
+					uint8_t j = 0;
+					float dec = 0;
+					do
+					{
+						while (!__HAL_UART_GET_FLAG(&huart1,UART_FLAG_RXNE));
+						HAL_UART_Receive(&huart1, Rx_buff+i, 1, 1000);
+						HAL_UART_Transmit(&huart1, Rx_buff+i, 1, 1000);
+						while (!__HAL_UART_GET_FLAG(&huart1,UART_FLAG_TC));
+						if (Rx_buff[i] == '.')
+						{
+							k = Rx_buff[0]-48;
+							for (j = 1;j<i ; j++)
+								k = k*10 + (Rx_buff[j]-48);
+							//j = i+1;
+						}
+					} while (Rx_buff[i++] != '\n');
+					if (j)
+					{
+						for (i=i-3;i>j;i--)
+							dec = dec*0.1 + (Rx_buff[i]-48);
+						dec = dec*0.1;
+					}
+					else
+					{
+						k = Rx_buff[0]-48;
+						for (j = 1;j<i-2 ; j++)
+						k = k*10 + (Rx_buff[j]-48);
+					}
+					k+=dec;
+					ki = k;
+				}
+
+				//Nhap Kd
+				if ((Rx_buff[0] == 'D') && (status == 0))
+				{
+					HAL_UART_Transmit(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff),HAL_MAX_DELAY);
+					while (!__HAL_UART_GET_FLAG(&huart1,UART_FLAG_TC));
+					uint8_t i = 0;
+					uint8_t j = 0;
+					float dec = 0;
+					do
+					{
+						while (!__HAL_UART_GET_FLAG(&huart1,UART_FLAG_RXNE));
+						HAL_UART_Receive(&huart1, Rx_buff+i, 1, 1000);
+						HAL_UART_Transmit(&huart1, Rx_buff+i, 1, 1000);
+						while (!__HAL_UART_GET_FLAG(&huart1,UART_FLAG_TC));
+						if (Rx_buff[i] == '.')
+						{
+							k = Rx_buff[0]-48;
+							for (j = 1;j<i ; j++)
+								k = k*10 + (Rx_buff[j]-48);
+							//j = i+1;
+						}
+					} while (Rx_buff[i++] != '\n');
+					if (j)
+					{
+						for (i=i-3;i>j;i--)
+							dec = dec*0.1 + (Rx_buff[i]-48);
+						dec = dec*0.1;
+					}
+					else
+					{
+						k = Rx_buff[0]-48;
+						for (j = 1;j<i-2 ; j++)
+						k = k*10 + (Rx_buff[j]-48);
+					}
+					k+=dec;
+					kd = k;
+				}
+
+				HAL_UART_Receive_IT(&huart2, &rxbuff, 1);
+			}
 	}
 /* USER CODE END 0 */
 
