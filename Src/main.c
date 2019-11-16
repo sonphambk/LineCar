@@ -24,17 +24,28 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "PID.h"
+#include "string.h"
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 uint8_t Idle;
-int vitri;
+float vitri;
+int i_SumIndexArry=0;
+int i_SumValuteIndexArry=0;
+float f_thamchieu=0;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+typedef enum
+	{
+			UART_START =0,
+			UART_APP = 1,
+	}Uart_statemachine;
 
+Uart_statemachine my_state = UART_START;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -47,23 +58,27 @@ TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
 UART_HandleTypeDef huart1;
+DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
-char Rx_buff[255];
-uint8_t pwm1 = 200;
-uint8_t pwm2 = 200;
+char Rx_buff[25];
+char transmit[20];
+uint8_t pwm1 = 160;
+uint8_t pwm2 = 160;
 uint8_t offset = 10;
-uint8_t auto_mode = 0;
-uint8_t control_mode = 0;
+uint8_t mode = 0;    // 0 : control   , 1: line follow
+
 uint8_t S[4];
 float result_PWM;
-PID_parameter PID_set_parameters = {.Kp = 10,.Ki=0,.Kd=0,.Ts = 0.02,.PID_Saturation = 255
+PID_parameter PID_set_parameters = {.Kp = 25,.Ki=0.06,.Kd=3,.Ts = 0.02,.PID_Saturation = 255
 																			,.error =0,.pre_error =0,.pre2_error=0,.pre_Out =0,.Out = 0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
+void control();
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM3_Init(void);
@@ -112,47 +127,67 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 20ms
 	{
 			if (htim->Instance == TIM3)
 				{
-	//					if ( control_mode == 0 && auto_mode == 1)  // do line
-		//					{
-									S[3] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_5);
-									S[2] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_4);
-									S[1] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_3);
-									S[0] = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_15);
-								if (S[0] == 1 && S[1] == 0 && S[2] == 0 && S[3] == 1) // xe di thang
-										{
-												vitri = 0;
-												result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
-										}
-								if (S[0] == 0 && S[1] == 1 && S[2] == 0 && S[3] ==1)  // xe re phai
-										{
-												vitri = 1;
-												result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
-										}
-								if (S[0] == 1 && S[1] == 0 && S[2] == 0 && S[3] ==0)   // xe re trai
-										{
-												vitri = -1; 
-												result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
-										}
-							if (result_PWM == 0)
+					if (mode ==1)
+						{
+					S[3] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_5);
+					S[2] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_4);
+					S[1] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_3);
+					S[0] = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_15);
+					for(int i=0;i<=3;i++)
+						{
+							if(S[i]==0)
+								{
+										i_SumValuteIndexArry+=1;
+										i_SumIndexArry+=(i+1);
+								}
+						}
+					f_thamchieu=(float)i_SumIndexArry/i_SumValuteIndexArry;
+					i_SumIndexArry=0;
+					i_SumValuteIndexArry=0;
+					if(f_thamchieu==2){
+						vitri=-1.2;
+					}else if(f_thamchieu==3){
+						vitri=1.2;
+					}else if(f_thamchieu==1){
+						vitri=-2;
+					}else if(f_thamchieu==4){
+						vitri=2;
+					}else if(f_thamchieu==1.5){
+						vitri=-1.5;
+					}else if(f_thamchieu ==2.5){
+						vitri=0;
+					}else if(f_thamchieu==3.5)
+					{
+						vitri=1.5;
+					}	 
+					
+					result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
+								
+							if (vitri== 0)
 										{			
-												move(0,0);
-												move(1,1);
+												move(0,1);
+												move(1,0);
 												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,200);
 												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,200);
 										}
-							if (result_PWM > 0)
+							if (vitri > 0)
 										{
-												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,pwm1 - result_PWM);  //kenh 3 dong co trai
-												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,pwm2 + result_PWM);	
+												move(0,1);
+												move(1,0);
+												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,result_PWM);  //kenh 3 dong co trai
+												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,0);	
 										}
-							if (result_PWM < 0)
+							if (vitri < 0)
 										{
-												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,pwm1 + (result_PWM*-1));
-												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,pwm2 - (result_PWM*-1));	
+												move(0,1);
+												move(1,0);
+												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,0);
+												__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,(result_PWM*-1));	
 										}
 								//if (sensor[0] == 1 && sensor[1] == 0 && sensor[2] == 0 && sensor[3] ==1)
 									//	vitri = 0;
 			//				}
+					}		 
 				}
 	}
 	
@@ -162,22 +197,84 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 20ms
 /* USER CODE BEGIN 0 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	{
-			if (huart->Instance == USART1)
+			if (huart->Instance == USART1)   //state machine
 				{		
-						HAL_UART_Receive_IT(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff));
-						if (Rx_buff[0] == 'C') //    ;  'C' : Control mode 
-							{		
-									control_mode = 1;
-									auto_mode = 0;
-									HAL_UART_Transmit(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff),HAL_MAX_DELAY);
-							}
-							else if (Rx_buff[0] == 'A')    // 'A' : Auto mode
+						switch(my_state)
 							{
-									HAL_UART_Transmit(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff),HAL_MAX_DELAY);
-									control_mode = 0;
-									auto_mode = 1;	
+							case UART_START:    // nhan chuoi voi 3 byte : bat dau,che do ,huong
+								{
+									if (Rx_buff[0] == 1)  // 1: khi nhan nut start , 'C' : control mode
+										{
+												my_state = UART_APP;
+												HAL_UART_Receive_DMA(&huart1,(uint8_t*)Rx_buff,1);
+										}
+//									if (Rx_buff[0] == 1 )  // 'L':line follow
+//											{
+//												mode = 1;
+//												my_state = UART_APP;
+//												HAL_UART_Receive_DMA(&huart1,(uint8_t*)Rx_buff,3);
+//											}
+									else 
+										{
+												HAL_UART_Transmit(&huart1,(uint8_t*)"Invalid",7,100);
+												HAL_UART_Receive_DMA(&huart1,(uint8_t*)Rx_buff,1);
+										}
+									break;
+								}
+							case UART_APP:
+								{
+									if (Rx_buff[0] == 'L')
+										{
+											mode = 1;
+										}
+									control();
+									HAL_UART_Receive_DMA(&huart1,(uint8_t*)Rx_buff,1);
+									memset(Rx_buff,0,3);   // xoa Rx_buff
+									my_state = UART_START;
+									break;
+								}	
 							}
+					HAL_UART_Receive_DMA(&huart1,(uint8_t*)Rx_buff,1);
+
 				}
+	}
+void control()
+	{
+						switch(Rx_buff[0])
+										{
+										case 'L':
+											{		
+													move(0,0);
+													move(1,1);
+													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,0);   //speed of left motor
+													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,180);	// speed of right motor
+													break;
+											}
+										case 'R':
+											{
+													move(0,0);
+													move(1,1);
+													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,180);   //speed of left motor
+													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,0);	// speed of right motor
+														break;
+											}
+										case 'F':
+											{	
+													move(0,0);
+													move(1,1);
+													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,180);   //speed of left motor
+													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,180);	// speed of right motor
+														break;
+											}
+										case 'B':
+											{
+													move(0,1);
+													move(1,0);
+													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,180);   //speed of left motor
+													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,180);	// speed of right motor
+														break;
+											}
+									}
 	}
 /* USER CODE END 0 */
 
@@ -210,63 +307,32 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_TIM4_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-	HAL_UART_Receive_IT(&huart1,(uint8_t*)Rx_buff,sizeof(Rx_buff));
+	HAL_UART_Receive_DMA(&huart1,(uint8_t*)Rx_buff,3);
 	HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_3);
 	HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_4);
 	HAL_TIM_Base_Start_IT(&htim3);
+
+	__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,160);
+	__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,160);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-			if (  control_mode == 1 && auto_mode == 0)
-				{
-						switch(Rx_buff[1])
-										{
-										case 'L':
-											{		
-													move(0,0);
-													move(1,1);
-													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,pwm1 - offset);   //speed of left motor
-													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,pwm2 + offset);	// speed of right motor
-													break;
-											}
-										case 'R':
-											{
-													move(0,0);
-													move(1,1);
-													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,pwm1 + offset);   //speed of left motor
-													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,pwm2 - offset);	// speed of right motor
-														break;
-											}
-										case 'F':
-											{	
-													move(0,0);
-													move(1,1);
-													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,pwm1);   //speed of left motor
-													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,pwm2);	// speed of right motor
-														break;
-											}
-										case 'B':
-											{
-													move(0,1);
-													move(1,0);
-													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,pwm1);   //speed of left motor
-													__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,pwm2);	// speed of right motor
-														break;
-											}
-									}
-						}
+		/*	
+						}*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 		
   }
+
   /* USER CODE END 3 */
 }
 
@@ -326,9 +392,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 71;
+  htim3.Init.Prescaler = 7199;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 20000;
+  htim3.Init.Period = 200;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -431,7 +497,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 9600;
+  huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -445,6 +511,21 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
+
+}
+
+/** 
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void) 
+{
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
 
 }
 
@@ -463,16 +544,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_11 
-                          |GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
-
-  /*Configure GPIO pins : PB0 PB1 PB10 PB11 
-                           PB3 PB4 PB5 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_11 
-                          |GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5;
+  /*Configure GPIO pins : PB0 PB1 PB10 PB11 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_11;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -480,10 +555,15 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PA15 */
   GPIO_InitStruct.Pin = GPIO_PIN_15;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB3 PB4 PB5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }
 

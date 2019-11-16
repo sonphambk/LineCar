@@ -23,11 +23,11 @@ float PID_PROCESS(PID_parameter* pid_parameter, float vitri,float setpoint)   //
     
     if (pid_parameter->Out > pid_parameter->PID_Saturation)
 	  {
-		pid_parameter->Out = pid_parameter->PID_Saturation;
+			pid_parameter->Out = pid_parameter->PID_Saturation;
 	   }
 	  else if (pid_parameter->Out < (-pid_parameter->PID_Saturation))
 	  {
-	 	pid_parameter->Out = -pid_parameter->PID_Saturation;
+			pid_parameter->Out = -pid_parameter->PID_Saturation;
 	  }
 		
     return pid_parameter->Out; 
