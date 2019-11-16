@@ -203,9 +203,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 							{
 							case UART_START:    // nhan chuoi voi 3 byte : bat dau,che do ,huong
 								{
-									if (Rx_buff[0] == 1)  // 1: khi nhan nut start , 'C' : control mode
+									if (Rx_buff[0] == 1)  // 1: khi nhan nut start 
 										{
-												my_state = UART_APP;
+												my_state = UART_APP;  //chuyen qua trang thai 2
 												HAL_UART_Receive_DMA(&huart1,(uint8_t*)Rx_buff,1);
 										}
 //									if (Rx_buff[0] == 1 )  // 'L':line follow
@@ -225,12 +225,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 								{
 									if (Rx_buff[0] == 'A') // 'A':line follow
 										{
-											mode = 1;
+											mode = 1;  // thuc hien  do line
 										}
+									else if (Rx_buff[0] != 'A')
+										{
 									control();
+										}	
 									HAL_UART_Receive_DMA(&huart1,(uint8_t*)Rx_buff,1);
-									memset(Rx_buff,0,3);   // xoa Rx_buff
-									my_state = UART_START;
+									//memset(Rx_buff,0,3);   // xoa Rx_buff
+									my_state = UART_APP;
 									break;
 								}	
 							}

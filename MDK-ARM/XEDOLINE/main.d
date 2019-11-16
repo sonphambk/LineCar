@@ -27,3 +27,4 @@ xedoline\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h
 xedoline\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h
 xedoline\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h
 xedoline\main.o: ..\MDK-ARM\PID.h
+xedoline\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\string.h

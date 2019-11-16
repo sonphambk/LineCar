@@ -5,10 +5,10 @@
 <h2>Tool Versions:</h2>
 IDE-Version: µVision V5.28.0.0
 Copyright (C) 2019 ARM Ltd and ARM Germany GmbH. All rights reserved.
-License Information: AN PHAN, ANPHAN, LIC=LSNMM-XTQ18-I58TC-700D8-GW9Z5-NX2T8
+License Information: son pham, University of Technology, LIC=----
  
 Tool Versions:
-Toolchain:       MDK-ARM Plus  Version: 5.28.0.0
+Toolchain:       MDK-Lite  Version: 5.28.0.0
 Toolchain Path:  C:\Keil_v5\ARM\ARMCC\Bin
 C Compiler:      Armcc.exe V5.06 update 6 (build 750)
 Assembler:       Armasm.exe V5.06 update 6 (build 750)
@@ -21,13 +21,49 @@ Target DLL:      STLink\ST-LINKIII-KEIL_SWO.dll V3.0.6.0
 Dialog DLL:      TCM.DLL V1.36.2.0
  
 <h2>Project:</h2>
-D:\PIF\C20\LineCar\MDK-ARM\XEDOLINE.uvprojx
-Project File Date:  11/12/2019
+C:\Users\PC\Desktop\New folder\STM32\Xedoline\XEDOLINE\MDK-ARM\XEDOLINE.uvprojx
+Project File Date:  11/16/2019
 
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 6 (build 750)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
-Build target 'XEDOLINE'
-"XEDOLINE\XEDOLINE.axf" - 0 Error(s), 0 Warning(s).
+Rebuild target 'XEDOLINE'
+assembling startup_stm32f103xb.s...
+compiling sensor.c...
+sensor.h(18): warning:  #1-D: last line of file ends without a newline
+  #endif
+sensor.c: 1 warning, 0 errors
+compiling PID.c...
+PID.c(34): warning:  #1-D: last line of file ends without a newline
+  }
+PID.c: 1 warning, 0 errors
+compiling UART.c...
+UART.h(45): warning:  #1-D: last line of file ends without a newline
+  #endif  /* _UART_H_*/
+UART.c: 1 warning, 0 errors
+compiling stm32f1xx_it.c...
+compiling stm32f1xx_hal_msp.c...
+compiling main.c...
+../Src/main.c(78): warning:  #1295-D: Deprecated declaration control - give arg types
+  void control();
+../Src/main.c: 1 warning, 0 errors
+compiling stm32f1xx_hal_gpio_ex.c...
+compiling stm32f1xx_hal_tim_ex.c...
+compiling stm32f1xx_hal_tim.c...
+compiling stm32f1xx_hal.c...
+compiling stm32f1xx_hal_uart.c...
+compiling stm32f1xx_hal_rcc.c...
+compiling stm32f1xx_hal_rcc_ex.c...
+compiling stm32f1xx_hal_gpio.c...
+compiling stm32f1xx_hal_dma.c...
+compiling stm32f1xx_hal_cortex.c...
+compiling stm32f1xx_hal_pwr.c...
+compiling stm32f1xx_hal_flash.c...
+compiling system_stm32f1xx.c...
+compiling stm32f1xx_hal_flash_ex.c...
+linking...
+Program Size: Code=9640 RO-data=292 RW-data=96 ZI-data=1312  
+FromELF: creating hex file...
+"XEDOLINE\XEDOLINE.axf" - 0 Error(s), 4 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -44,13 +80,13 @@ Package Vendor: Keil
 
 <h2>Collection of Component include folders:</h2>
   .\RTE\_XEDOLINE
-  C:\Keil_v5\ARM\PACK\ARM\CMSIS\5.5.1\CMSIS\Core\Include
-  C:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.3.0\Device\Include
+  C:\Users\PC\AppData\Local\Arm\Packs\ARM\CMSIS\5.5.1\CMSIS\Core\Include
+  C:\Users\PC\AppData\Local\Arm\Packs\Keil\STM32F1xx_DFP\2.3.0\Device\Include
 
 <h2>Collection of Component Files used:</h2>
 
    * Component: ARM::CMSIS:CORE:5.2.0
-Build Time Elapsed:  00:00:00
+Build Time Elapsed:  00:00:20
 </pre>
 </body>
 </html>
