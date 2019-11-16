@@ -223,7 +223,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 								}
 							case UART_APP:
 								{
-									if (Rx_buff[0] == 'L')
+									if (Rx_buff[0] == 'A') // 'A':line follow
 										{
 											mode = 1;
 										}
