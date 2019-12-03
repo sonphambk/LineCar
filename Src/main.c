@@ -28,6 +28,7 @@
 #include "string.h"
 #include "stdio.h"
 
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -115,10 +116,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 5ms
 	{
 		if (mode ==1)
 		{
-			S[3] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_5); // 7
-			S[2] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_4); // 5
-			S[1] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_3); // 3
-			S[0] = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_15);// 1
+			S[3] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_5); // dat gia tri = 7
+			S[2] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_4); // dat gia tri = 5
+			S[1] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_3); // dat gia tri = 3
+			S[0] = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_15);// dat gia tri = 1
 			for(int i=0;i<=3;i++)
 			{
 				if(S[i]==0)
@@ -127,21 +128,21 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 5ms
 				}
 			}
 		
-			if(i_SumIndexArry==0)
+			if(i_SumIndexArry==0) 
 			{
-				Line_status = LINE_OFF;
+				Line_status = LINE_OFF; // khong bat line
 			}
 			else 
 			{		
-				Line_status = LINE_START;
+				Line_status = LINE_START; // bat duoc line
 			}
 		
 			switch(Line_status)
 			{
-				case LINE_OFF:
+				case LINE_OFF:      
 				{
 					demoutline+=1;	
-					if(demoutline==20)
+					if(demoutline==20)    // out time line -> nhan lai tri tri truoc khi out
 					{
 							demtimeout+=1;
 							vitri=previtri;
@@ -187,12 +188,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 5ms
 	
 
 
-/*-----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+den :             0    1    2    3
+tham chieu:       1    3    5    7
+*/
 void Control_Value_Line (int value)
 {
 	switch(value)
 			{
-				case 7:
+				case 7:        
 					vitri=1.8;
 					break;
 				case (12 | 15):
