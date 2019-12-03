@@ -34,11 +34,24 @@
 /* USER CODE BEGIN PTD */
 int kt=0;
 float vitri;
+int presumindex=0;
 int i_SumIndexArry=0;
-int i_SumValuteIndexArry=0;
-float f_thamchieu=0;   
-static int dem=0;
+static int demtimeout=1;
+static int demoutline=0;
 static float previtri=0;
+static int demprevitri=0;
+
+typedef enum
+{
+	LINE_OFF=0,
+	LINE_START,
+}LINE_parameter;
+
+LINE_parameter Line_status=LINE_START;
+
+void Control_Value_Line (int value);
+void Control_vitri_Line(float vitri);
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -77,7 +90,7 @@ int kq = 0;
 uint8_t S[4];
 float result_PWM;
 uint8_t Rx_buff[10];
-PID_parameter PID_set_parameters = {.Kp = 30,.Ki=0.09,.Kd=3,.Ts = 0.005,.PID_Saturation = 255
+PID_parameter PID_set_parameters = {.Kp =20,.Ki=0.0005,.Kd=15,.Ts = 0.005,.PID_Saturation = 175
 																			,.error =0,.pre_error =0,.pre2_error=0,.pre_Out =0,.Out = 0};
 /* USER CODE END PV */
 
@@ -91,114 +104,144 @@ static void MX_DMA_Init(void);
 /* USER CODE BEGIN PFP */
 void control();																	
 /*
-PB0  ---> IN4
-PB1  ---> IN3
-PB10 ---> IN2
-PB11 ---> IN1
+PB0  ---> IN4 
+PB1  ---> IN3 
+PB10 ---> IN2 
+PB11 ---> IN1 
 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 5ms 
 	{
-	if (htim->Instance == TIM3)
+	if (htim->Instance == htim3.Instance)
 	{
-	if (mode ==1)
+		if (mode ==1)
 		{
-		S[3] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_5);
-		S[2] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_4);
-		S[1] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_3);
-		S[0] = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_15);
-		for(int i=0;i<=3;i++)
-		{
-			if(S[i]==0)
+			S[3] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_5); // 7
+			S[2] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_4); // 5
+			S[1] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_3); // 3
+			S[0] = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_15);// 1
+			for(int i=0;i<=3;i++)
 			{
-				i_SumValuteIndexArry+=1;
-				i_SumIndexArry+=(i+1);
+				if(S[i]==0)
+				{
+					i_SumIndexArry+=(2*i+1);
+				}
 			}
-		}
 		
-		if(i_SumIndexArry==6)
-		{
-			vitri=-1.7;
-		}
-		else if(i_SumIndexArry==9)
-		{
-			vitri=1.7;
-		}
-		else if(i_SumIndexArry==10)
-		{
-			dem++;
-			if(dem==5)
+			if(i_SumIndexArry==0)
 			{
-				vitri=previtri;
-				dem=0;
+				Line_status = LINE_OFF;
 			}
-		}
-		else
-	{		
-		f_thamchieu=(float)i_SumIndexArry/i_SumValuteIndexArry;
-		i_SumIndexArry=0;
-		i_SumValuteIndexArry=0;
-		if(f_thamchieu==2)
-		{
-			vitri=-1.2;
-		}
-		else if(f_thamchieu==3)
-		{
-			vitri=1.2;
-		}
-		else if(f_thamchieu==1)
-		{
-			vitri=-2;
-		}
-		else if(f_thamchieu==4)
-		{
-			vitri=2;
-		}
-		else if(f_thamchieu==1.5)
-		{
-			vitri=-1.5;
-		}
-		else if(f_thamchieu ==2.5)
-		{
-			vitri=0;
-		}
-		else if(f_thamchieu==3.5)
-		{
-			vitri=1.5;
-		}
-	}
-		previtri=vitri;
-		result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
-			if (vitri== 0)
+			else 
+			{		
+				Line_status = LINE_START;
+			}
+		
+			switch(Line_status)
 			{
-				forward();
-				__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,200);
-				__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,200);
+				case LINE_OFF:
+				{
+					demoutline+=1;	
+					if(demoutline==20)
+					{
+							demtimeout+=1;
+							vitri=previtri;
+							Control_vitri_Line(vitri);
+							Line_status = LINE_START;
+							demoutline=0;
+					}
+					
+//					if (demtimeout==2)  
+//					{
+//						backward();
+//					__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,175);
+//					__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,175);
+//					}
+//					else if (demoutline>=3)
+//					{
+//						vitri=-previtri;
+//						Control_Value_Line(vitri);
+//					}
+					break;
+				}
+				case LINE_START:
+				{
+					Control_Value_Line(i_SumIndexArry);
+					break;
+				}
 			}
-			if (vitri > 0)
-			{
-				forward();
-				__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,result_PWM);  //kenh 3 dong co trai
-				__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,0);
-			}
-			if (vitri < 0)
-			{
-				forward();
-				__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,0);
-				__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,(result_PWM*-1));
-			}
-			}
+			presumindex=i_SumIndexArry;
+			i_SumIndexArry=0;
+			
+		}
 		else if(mode ==2)
-			{
-				control();
-			}
-
+		{
+			control();
+		}
 		else if(mode == 3 || mode == 0)
-			{
-				__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,0);
-				__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,0);
-			}
+		{
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,0);
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,0);
 		}
 	}
+}
+	
+
+
+/*-----------------------------------------------------------------------------*/
+void Control_Value_Line (int value)
+{
+	switch(value)
+			{
+				case 7:
+					vitri=1.8;
+					break;
+				case (12 | 15):
+					vitri=1.65;
+					break;
+				case 5:
+					vitri=1.4;
+					break;
+				case 3:
+					vitri=-1.4;
+					break;
+				case 8:
+					vitri=0;
+					break; 
+				case (4 | 9):
+					vitri= -1.65;
+					break;
+				case 1:
+					vitri=-1.8;
+					break;
+			}
+		Control_vitri_Line(vitri);
+}
+
+void Control_vitri_Line (float vitri)
+{
+	previtri=vitri;	
+	result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
+	if (vitri== 0)
+	{
+			forward();
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,170);
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,170);
+	}
+	if (vitri > 0)
+	{
+		forward();
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,result_PWM);  //kenh 3 dong co trai
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,0);
+	}
+	if (vitri < 0)
+	{
+		forward();
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,0);
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,(result_PWM*-1));
+	}
+	
+}
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -235,11 +278,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 				my_state = UART_APP;
 				HAL_UART_Receive_DMA(&huart1,Rx_buff,1);
 				}
-			else if (Rx_buff[0] =='i')
+				else if (Rx_buff[0] =='i')
 				{
 					mode = 3;
 				}
-			else if (Rx_buff[0] == 'd' ) // bat che do do line
+				else if (Rx_buff[0] == 'd' ) // bat che do do line
 				{
 					mode = 1;  // che do do line
 					HAL_UART_Receive_DMA(&huart1,Rx_buff,1);
@@ -404,7 +447,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 7199;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 199;
+  htim3.Init.Period = 49;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
