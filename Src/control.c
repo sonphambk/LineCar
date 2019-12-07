@@ -1,8 +1,6 @@
 #include "control.h"
-/**
-  * @brief function control
-  * @param None
-  */
+
+
 void forward(void)
 	{
 		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);  // dong co trai

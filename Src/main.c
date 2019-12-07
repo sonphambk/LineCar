@@ -41,17 +41,30 @@ static int demtimeout=1;
 static int demoutline=0;
 static float previtri=0;
 static int demprevitri=0;
-
+typedef enum
+	{
+		STOP = 0,
+		LINE_FOLLOW,
+		MANUAL,
+	}mode;
+mode mode_current = STOP; 
 typedef enum
 {
 	LINE_OFF=0,
 	LINE_START,
 }LINE_parameter;
 
+typedef enum 
+{
+	LINE_external=0,
+	LINE_internal,
+}LINE_Control;
+
 LINE_parameter Line_status=LINE_START;
 
-void Control_Value_Line (int value);
+void Control_Value_Line(int value);
 void Control_vitri_Line(float vitri);
+void CONTROL();	
 
 /* USER CODE END PTD */
 
@@ -62,7 +75,6 @@ typedef enum
 			UART_START =0,
 			UART_APP ,
 	}Uart_statemachine;
-
 Uart_statemachine my_state = UART_START;
 /* USER CODE END PD */
 
@@ -74,24 +86,22 @@ Uart_statemachine my_state = UART_START;
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
-
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
 
 /* USER CODE BEGIN PV */
-
 uint8_t pwm1 = 160;
 uint8_t pwm2 = 160;
 uint8_t offset = 10;
-uint8_t mode = 0;    // 2 : control   , 1: line follow
+//uint8_t mode = 0;    // 2 : control   , 1: line follow
 int i =0;
 int k =0;
 int kq = 0;
 uint8_t S[4];
 float result_PWM;
 uint8_t Rx_buff[10];
-PID_parameter PID_set_parameters = {.Kp =20,.Ki=0.0005,.Kd=15,.Ts = 0.005,.PID_Saturation = 175
+PID_parameter PID_set_parameters = {.Kp =40,.Ki=0.0001,.Kd=25,.Ts = 0.005,.PID_Saturation = 180
 																			,.error =0,.pre_error =0,.pre2_error=0,.pre_Out =0,.Out = 0};
 /* USER CODE END PV */
 
@@ -103,7 +113,7 @@ static void MX_TIM4_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_DMA_Init(void);
 /* USER CODE BEGIN PFP */
-void control();																	
+																
 /*
 PB0  ---> IN4 
 PB1  ---> IN3 
@@ -114,7 +124,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 5ms
 	{
 	if (htim->Instance == htim3.Instance)
 	{
-		if (mode ==1)
+		if ( mode_current == LINE_FOLLOW)
 		{
 			S[3] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_5); // dat gia tri = 7
 			S[2] = HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_4); // dat gia tri = 5
@@ -151,17 +161,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 5ms
 							demoutline=0;
 					}
 					
-//					if (demtimeout==2)  
-//					{
-//						backward();
-//					__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,175);
-//					__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,175);
-//					}
-//					else if (demoutline>=3)
-//					{
-//						vitri=-previtri;
-//						Control_Value_Line(vitri);
-//					}
 					break;
 				}
 				case LINE_START:
@@ -174,78 +173,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)   // ngat 5ms
 			i_SumIndexArry=0;
 			
 		}
-		else if(mode ==2)
+		else if(mode_current == MANUAL)
 		{
-			control();
+			CONTROL();
 		}
-		else if(mode == 3 || mode == 0)
+		else if(mode_current == STOP)
 		{
 			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,0);
 			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,0);
 		}
 	}
 }
-	
-
-
-/*-----------------------------------------------------------------------------
-den :             0    1    2    3
-tham chieu:       1    3    5    7
-*/
-void Control_Value_Line (int value)
-{
-	switch(value)
-			{
-				case 7:        
-					vitri=1.8;
-					break;
-				case (12 | 15):
-					vitri=1.65;
-					break;
-				case 5:
-					vitri=1.4;
-					break;
-				case 3:
-					vitri=-1.4;
-					break;
-				case 8:
-					vitri=0;
-					break; 
-				case (4 | 9):
-					vitri= -1.65;
-					break;
-				case 1:
-					vitri=-1.8;
-					break;
-			}
-		Control_vitri_Line(vitri);
-}
-
-void Control_vitri_Line (float vitri)
-{
-	previtri=vitri;	
-	result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
-	if (vitri== 0)
-	{
-			forward();
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,170);
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,170);
-	}
-	if (vitri > 0)
-	{
-		forward();
-		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,result_PWM);  //kenh 3 dong co trai
-		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,0);
-	}
-	if (vitri < 0)
-	{
-		forward();
-		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,0);
-		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,(result_PWM*-1));
-	}
-	
-}
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -261,7 +199,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			{
 			if (Rx_buff[0] == 's' )  // khi nhan nut start de bat dau
 				{	
-					i++;
 					my_state = UART_APP;
 					HAL_UART_Receive_DMA(&huart1,Rx_buff,1);
 					break;
@@ -278,23 +215,24 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			HAL_UART_Receive_DMA(&huart1,(uint8_t*)Rx_buff,1);		
 			if (Rx_buff[0] == 'f' || Rx_buff[0] == 'b' || Rx_buff[0] == 'r'||Rx_buff[0] == 'l')  // khi o che do dieu khien tay
 				{
-				mode = 2;  // control
+				mode_current = MANUAL;  // control
 				my_state = UART_APP;
 				HAL_UART_Receive_DMA(&huart1,Rx_buff,1);
 				}
-				else if (Rx_buff[0] =='i')
+			else if (Rx_buff[0] =='i')
 				{
-					mode = 3;
+					mode_current = STOP;
+					
 				}
-				else if (Rx_buff[0] == 'd' ) // bat che do do line
+			else if (Rx_buff[0] == 'd' ) // bat che do do line
 				{
-					mode = 1;  // che do do line
+					mode_current = LINE_FOLLOW;  // che do do line
 					HAL_UART_Receive_DMA(&huart1,Rx_buff,1);
 					my_state = UART_APP;
 				}
 			else if(Rx_buff[0] == 'k'  ) // tat che do do line
 				{	
-					mode =0;  
+					mode_current =STOP;  
 					HAL_UART_Receive_DMA(&huart1,Rx_buff,1);
 					my_state = UART_APP;
 				}	
@@ -303,7 +241,129 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			}
 		}		
 }
+/*-----------------------------------------------------------------------------
+@brief  Control_Value_Line
+@param 	
+light :         0    1    2    3
+Reference:      1    3    5    7
+*/
+void Control_Value_Line (int value)
+{
+	switch(value)
+		{
+		case 7:        
+		{
+			vitri=1.8;
+			break;
+		}
+		case (12 | 15):
+			vitri=1.65;
+			break;
+		case 5:
+			vitri=1.4;
+			break;
+		case 3:
+			vitri=-1.4;
+			break;
+		case 8:
+			vitri=0;
+			break; 
+		case 0:
+			vitri =0;
+			break;
+		case (4 | 9):
+			vitri= -1.65;
+			break;
+		case 1:
+			vitri=-1.8;
+			break;
+		}
+		Control_vitri_Line(vitri);
+}
+/*-----------------------------------------------------------------------------
+@brief  Control robot f
+@param 	None
+*/
+void CONTROL()
+{
+		switch(Rx_buff[0])
+		{
+		case 'r':
+		{
+			backward();
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,100);   //speed of left motor
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,200);	// speed of right motor
+			break;
+		}
+		case 'l':
+		{
+			backward();
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,200);   //speed of left motor
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,100);	// speed of right motor
+			break;
+		}
+		case 'f':
+		{
+			backward();
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,210);   //speed of left motor
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,210);	// speed of right motor
+			break;
+		}
+		case 'b':
+		{	
+			forward();
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,210);   //speed of left motor
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,210);	// speed of right motor
+			break;
+		}
+}
+}
 
+void Control_vitri_Line (float vitri)
+{
+	previtri=vitri;	
+	result_PWM = PID_PROCESS(&PID_set_parameters,vitri,0);
+	if (vitri== 0)
+	{
+		backward();
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,190);  //kenh 3 dong co trai
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,190);
+	}
+	if (vitri < 0)
+	{
+		if(vitri<-1.5)
+		{
+		backward();
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,result_PWM);  //kenh 3 dong co trai
+		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET); // dong co phai
+		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_11,GPIO_PIN_RESET);
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,150);
+		}
+		else
+		{
+			backward();
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,result_PWM);  //kenh 3 dong co trai
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,0);
+		}
+	}
+	if (vitri > 0)
+	{
+		if(vitri>1.5)
+		{
+		backward();
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,(result_PWM*-1));
+		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);  // dong co trai
+		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,GPIO_PIN_SET);
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,150);
+		}else
+		{
+			backward();
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,(result_PWM*-1));
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,0);
+		}
+	}
+	
+}
 /* USER CODE END 0 */
 
 /**
@@ -359,39 +419,68 @@ int main(void)
   }
   /* USER CODE END 3 */
 }
-void control()
+
+/**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
 {
-		switch(Rx_buff[0])
-		{
-		case 'l':
-		{
-			forward();
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,100);   //speed of left motor
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,200);	// speed of right motor
-			break;
-		}
-		case 'r':
-		{
-			forward();
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,200);   //speed of left motor
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,100);	// speed of right motor
-			break;
-		}
-		case 'f':
-		{
-			forward();
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,210);   //speed of left motor
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,210);	// speed of right motor
-			break;
-		}
-		case 'b':
-		{	
-			backward();
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,210);   //speed of left motor
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,210);	// speed of right motor
-			break;
-		}
-}
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 9;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 254;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
+  HAL_TIM_MspPostInit(&htim4);
+
 }
 /**
   * @brief System Clock Configuration
@@ -475,68 +564,7 @@ static void MX_TIM3_Init(void)
 
 }
 
-/**
-  * @brief TIM4 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM4_Init(void)
-{
 
-  /* USER CODE BEGIN TIM4_Init 0 */
-
-  /* USER CODE END TIM4_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
-
-  /* USER CODE BEGIN TIM4_Init 1 */
-
-  /* USER CODE END TIM4_Init 1 */
-  htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 9;
-  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 254;
-  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM4_Init 2 */
-
-  /* USER CODE END TIM4_Init 2 */
-  HAL_TIM_MspPostInit(&htim4);
-
-}
 
 /**
   * @brief USART1 Initialization Function
