@@ -101,7 +101,7 @@ int kq = 0;
 uint8_t S[4];
 float result_PWM;
 uint8_t Rx_buff[10];
-PID_parameter PID_set_parameters = {.Kp =40,.Ki=0.0001,.Kd=25,.Ts = 0.005,.PID_Saturation = 180
+PID_parameter PID_set_parameters = {.Kp =30,.Ki=0.0002,.Kd=26,.Ts = 0.005,.PID_Saturation = 180
 																			,.error =0,.pre_error =0,.pre2_error=0,.pre_Out =0,.Out = 0};
 /* USER CODE END PV */
 
@@ -326,8 +326,8 @@ void Control_vitri_Line (float vitri)
 	if (vitri== 0)
 	{
 		backward();
-		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,190);  //kenh 3 dong co trai
-		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,190);
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,180);  //kenh 3 dong co trai
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,180);
 	}
 	if (vitri < 0)
 	{
@@ -337,13 +337,13 @@ void Control_vitri_Line (float vitri)
 		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,result_PWM);  //kenh 3 dong co trai
 		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET); // dong co phai
 		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_11,GPIO_PIN_RESET);
-		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,150);
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,120);
 		}
 		else
 		{
 			backward();
 			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,result_PWM);  //kenh 3 dong co trai
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,0);
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,160);
 		}
 	}
 	if (vitri > 0)
@@ -354,12 +354,12 @@ void Control_vitri_Line (float vitri)
 		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,(result_PWM*-1));
 		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);  // dong co trai
 		HAL_GPIO_WritePin(GPIOB,GPIO_PIN_0,GPIO_PIN_SET);
-		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,150);
+		__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,120);
 		}else
 		{
 			backward();
 			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_4,(result_PWM*-1));
-			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,0);
+			__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_3,160);
 		}
 	}
 	
